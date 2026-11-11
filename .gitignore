@@ -1,0 +1,6 @@
+node_modules/
+.serverless/
+.env
+*.pem
+__pycache__/
+*.pyc
