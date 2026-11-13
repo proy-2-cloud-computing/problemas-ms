@@ -1,13 +1,14 @@
 service: itsm-problemas
-frameworkVersion: '3'
+frameworkVersion: '4'
 
 provider:
   name: aws
   runtime: nodejs20.x
-  region: us-east-1
+  region: ${opt:region, 'us-east-1'}
   stage: ${opt:stage, 'dev'}
+  # AWS Academy: rol del laboratorio de la cuenta donde se despliega.
   iam:
-    role: arn:aws:iam::777000342473:role/LabRole
+    role: arn:aws:iam::${aws:accountId}:role/LabRole
   environment:
     TABLE: ${self:service}-${self:provider.stage}
     TOPIC_ARN: ${cf:itsm-base-${self:provider.stage}.ProblemasTopicArn}
@@ -77,6 +78,28 @@ resources:
               - { AttributeName: tenant_id, KeyType: HASH }
               - { AttributeName: estado_fecha, KeyType: RANGE }
             Projection: { ProjectionType: ALL }
+
+    # CORS tambien en errores generados por API Gateway (401 del authorizer,
+    # 403 de ruta inexistente, 5xx): sin esto el navegador los muestra como
+    # error de CORS y el frontend no puede pedir que se vuelva a iniciar sesion.
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseType: DEFAULT_4XX
+        RestApiId: !Ref ApiGatewayRestApi
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
+    GatewayResponseDefault5XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseType: DEFAULT_5XX
+        RestApiId: !Ref ApiGatewayRestApi
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
   Outputs:
     ProblemasApiUrl:
       Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${self:provider.stage}"
